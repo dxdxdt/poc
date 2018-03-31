@@ -1,0 +1,16 @@
+Makefile
+Makefile\.in
+*\.deps
+*\.o
+
+/aclocal\.m4
+/autom4te\.cache/
+/config\.guess
+/config\.log
+/config\.status
+/config\.sub
+/configure
+/depcomp
+/install-sh
+/missing
+/src/poc-multi_phase_lock
