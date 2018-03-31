@@ -4,17 +4,19 @@
 #include <vector>
 #include <map>
 #include <mutex>
+#include <atomic>
 
 typedef uint32_t ContextID;
 
 class ThreadContext;
-extern std::vector<ThreadContext*> threads;
-extern std::map<ContextID, ThreadContext*> idThreadMap;
+extern std::map<ContextID, ThreadContext*> threads;
 extern std::mutex globalLock;
 
-extern std::mutex resourceLock;
+extern std::mutex stdioLock;
+extern std::atomic<uint32_t> resource;
 
-extern uint64_t maxAcquireDelay;
+extern uint64_t maxAcquireDelay; // in microseconds
+extern uint64_t maxLockHoldTime; // in milliseconds
 
 enum OPCode {
   OPC_SHUTDOWN,
@@ -30,6 +32,10 @@ struct Command {
   ContextID context_from;
   ContextID context_to;
 };
+
+void addContext (ThreadContext *ctx);
+ThreadContext *popContext (const ContextID id);
+void clearContexts ();
 
 void sendCommand (Command *cmd);
 

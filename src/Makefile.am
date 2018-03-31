@@ -18,3 +18,5 @@ bin_PROGRAMS = poc-multi_phase_lock
 poc_multi_phase_lock_SOURCES =\
   Globals.cpp\
   main.cpp
+
+poc_multi_phase_lock_LDFLAGS = -lpthread

@@ -16,6 +16,8 @@
 class ThreadContext {
 protected:
   ContextID __id = 0;
+  size_t __maxCmdQueueSize = 10;
+  uint64_t __acquiredCount = 0;
 
   std::thread __th;
   std::set<ContextID> __others;
@@ -35,6 +37,10 @@ public:
 
   ContextID id () {
     return this->__id;
+  }
+
+  uint64_t acquiredCount () {
+    return this->__acquiredCount;
   }
 
   void start (const ContextID id) {
@@ -66,27 +72,33 @@ public:
   void pushCommand (Command *cmd) {
     std::unique_lock<std::mutex> ul(this->__cmdQueue.mtx);
 
+#if 0 // FIXME: FIFO awake가 필요함.
+    if (this->__cmdQueue.q.size() >= this->__maxCmdQueueSize) { // 큐가 병목.
+      // 스로틀.
+      this->__cmdQueue.cv_done.wait(ul);
+    }
+#endif
+
     this->__cmdQueue.q.push(cmd);
-    this->__cmdQueue.cv.notify_all();
+    this->__cmdQueue.cv_despatch.notify_all();
   }
 
 protected:
   void __report (const char *file, const uint32_t line, const std::string msg) {
+    std::lock_guard<std::mutex> lg(::stdioLock);
     std::cerr << msg << " (" << file << ':' << line << ')' << std::endl;
   }
 
   std::chrono::microseconds __randomAcquireDelay () {
-    uint64_t ret;
+    return std::chrono::microseconds(this->__rnd() % (::maxAcquireDelay + 1));
+  }
 
-    if (::maxAcquireDelay == 0) {
-      ret = 0;
-    }
-    else {
-      ret = this->__rnd() % // overflow aware
-        ::maxAcquireDelay == UINT64_MAX ? UINT64_MAX : (::maxAcquireDelay + 1);
-    }
+  std::chrono::milliseconds __randomLockHoldTime () {
+    return std::chrono::milliseconds(this->__rnd() % (::maxLockHoldTime + 1));
+  }
 
-    return std::chrono::microseconds(ret);
+  bool __knownOthers (const ContextID id) {
+    return this->__others.end() != this->__others.find(id);
   }
 
   void __run () {
@@ -124,6 +136,13 @@ protected:
       }
     }
 
+    // 내가 태어났다는 것을 방송.
+    cmd = new Command;
+    cmd->op_code = OPC_THREAD_SPAWNED;
+    cmd->context_from = this->__id;
+    cmd->context_to = 0;
+    ::sendCommand(cmd);
+
     // 초기 틱에서 바로 락 얻기 시도.
     this->__eventCtx.addImmediateEvent([this]() {
       this->__acquireLock();
@@ -137,10 +156,10 @@ protected:
 
         while (this->__cmdQueue.q.empty() && (!this->__eventCtx.hasPendingEvent(this->__tickStart))) {
           if (this->__eventCtx.hasEvent()) {
-            this->__cmdQueue.cv.wait_for(ul, this->__eventCtx.nextEvent(this->__tickStart));
+            this->__cmdQueue.cv_despatch.wait_for(ul, this->__eventCtx.nextEvent(this->__tickStart));
           }
           else {
-            this->__cmdQueue.cv.wait(ul);
+            this->__cmdQueue.cv_despatch.wait(ul);
           }
 
           this->__tickStart = EventContext::ClockType::now();
@@ -166,6 +185,12 @@ protected:
         }
 
         delete cmd;
+#if 0 // FIXME
+        {
+          std::unique_lock<std::mutex> ul(this->__cmdQueue.mtx);
+          this->__cmdQueue.cv_done.notify_one();
+        }
+#endif
       }
 
       if (runFlag) {
@@ -179,6 +204,13 @@ protected:
       }
 
     } while (runFlag);
+
+    // 내가 죽는다는 것을 방송.
+    cmd = new Command;
+    cmd->op_code = OPC_THREAD_DESPAWNED;
+    cmd->context_from = this->__id;
+    cmd->context_to = 0;
+    ::sendCommand(cmd);
 
     // 이벤트 비우기.
     this->__eventCtx.clear();
@@ -200,14 +232,21 @@ protected:
 
   void __cmdThreadDespawned (const Command &cmd) {
     this->__others.erase(cmd.context_from);
+
     this->__lockCtx.sentMyLock.erase(cmd.context_from);
     this->__lockCtx.yourLockToRcv.erase(cmd.context_from);
+    this->__lockCtx.yourLockToSend.erase(cmd.context_from);
     this->__lockCtx.rcvMyLock.erase(cmd.context_from);
 
-    // 락에 대한 예외처리: "My Lock" 명령을 보낸 애가 사라짐.
+    // 락에 대한 예외처리: "MyLock" 명령을 보낸 애가 사라짐.
     switch (this->__lockCtx.state) {
       case LockContext::LURKING:
-        if (this->__lockCtx.rcvMyLock.empty()) {
+        if (this->__others.empty()) {
+          // 혼자 있음. 바로 락을 얻은 것으로 처리.
+          this->__lockCtx.state = LockContext::ACQUIRED;
+          this->__onLockAcquired();
+        }
+        else if (this->__lockCtx.rcvMyLock.empty()) {
           this->__lockCtx.state = LockContext::SOLICITING;
           this->__solicitLock();
         }
@@ -236,6 +275,10 @@ protected:
           // 락을 준다.
           ::sendCommand(this->__makeMyCommand(OPC_YOUR_LOCK, cmd.context_from));
         }
+        else { // 나보다 낮은 놈이 락을 원함.
+          // 락을 풀때 준다.
+          this->__lockCtx.yourLockToSend.insert(cmd.context_from);
+        }
         break;
     }
   }
@@ -262,6 +305,7 @@ protected:
 
   void __cmdLockReset (const Command &cmd) {
     this->__lockCtx.rcvMyLock.erase(cmd.context_from);
+    this->__lockCtx.yourLockToSend.erase(cmd.context_from);
 
     if (this->__lockCtx.state == LockContext::LURKING &&
       this->__lockCtx.rcvMyLock.empty()) {
@@ -287,6 +331,7 @@ protected:
       if (this->__others.empty()) {
         // 혼자 있음. 바로 락을 얻은 것으로 처리.
         this->__lockCtx.state = LockContext::ACQUIRED;
+        this->__onLockAcquired();
       }
       else {
         if (this->__lockCtx.rcvMyLock.empty()) {
@@ -307,9 +352,10 @@ protected:
     switch (this->__lockCtx.state) { // 이미 뭔가를 보냈을 때.
       case LockContext::ACQUIRED:
         // 락을 주지 않은 다른 곳에 이제 줌.
-        for (const auto &other : this->__lockCtx.rcvMyLock) {
+        for (const auto &other : this->__lockCtx.yourLockToSend) {
           ::sendCommand(this->__makeMyCommand(OPC_YOUR_LOCK, other));
         }
+        this->__lockCtx.yourLockToSend.clear();
         /* fall through */
       case LockContext::SOLICITING:
         // 다른 이에게 내가 락을 풀었다는 것을 통보.
@@ -324,23 +370,25 @@ protected:
   }
 
   void __onLockAcquired () {
-    // 처리 지연을 시뮬레이션한 뒤 락을 해제함.
-    const auto releaseDelay = this->__rnd() % 100;
+    std::stringstream ss;
     std::function<void()> event;
-    bool myResource;
+    uint32_t rsrc;
 
-    myResource = ::resourceLock.try_lock();
-    if (!myResource) {
-      __REPORT("* Race state detected - lock not acquired with resource.");
+    this->__acquiredCount += 1;
+
+    rsrc = ::resource.fetch_add(1);
+    if (rsrc != 0) {
+      ss << "* Race state detected(" << rsrc << ") by thread "
+        << this->__id;
+      __REPORT(ss.str());
     }
 
-    event = [this, myResource]() {
-      if (myResource) {
-        ::resourceLock.unlock();
-      }
+    // 처리 지연을 시뮬레이션한 뒤 락을 해제함.
+    event = [this]() {
+      ::resource -= 1;
       this->__releaseLock();
     };
-    this->__eventCtx.addEvent(this->__tickStart + std::chrono::milliseconds(releaseDelay), event);
+    this->__eventCtx.addEvent(this->__tickStart + this->__randomLockHoldTime(), event);
   }
 };
 

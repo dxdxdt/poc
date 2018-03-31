@@ -12,7 +12,7 @@ struct LockContext {
     ACQUIRED
   };
 
-  LockState state;
+  LockState state = NONE;
 
   // 내가 락을 얻으려 한 시점에, "MyLock" 명령을 보낸 곳들.
   // 중간에 다른 Context가 접속했으면, 그 Context는 이 컬렉션에 존재하지 않음.
@@ -22,6 +22,7 @@ struct LockContext {
   // "YourLock" 명령을 받아야하는 곳들.
   // `SOLICITING` 상태에서 이 컬렉션에 아이템이 없으면 `ACQUIRED` 상태로 진입한다.
   std::set<ContextID> yourLockToRcv;
+  std::set<ContextID> yourLockToSend;
   // `MyLock` 명령을 받은 곳들 (락을 얻으려는 곳들)
   std::set<ContextID> rcvMyLock;
 };
