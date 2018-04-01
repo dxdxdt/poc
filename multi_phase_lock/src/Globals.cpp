@@ -9,8 +9,8 @@ std::mutex globalLock;
 std::mutex stdioLock;
 std::atomic<uint32_t> resource;
 
-uint64_t maxAcquireDelay = 0; // in microseconds
-uint64_t maxLockHoldTime = 0; // in milliseconds
+uint64_t maxAcquireDelay = 0; // in ms
+uint64_t maxLockHoldTime = 0; // in ms
 
 
 void addContext (ThreadContext *ctx) {

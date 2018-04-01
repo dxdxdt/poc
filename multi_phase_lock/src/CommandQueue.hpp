@@ -8,7 +8,7 @@
 
 struct CommandQueue {
   std::mutex mtx;
-  std::condition_variable cv_despatch, cv_done;
+  std::condition_variable cv_despatch;
   std::queue<Command*> q;
 
   ~CommandQueue () {
