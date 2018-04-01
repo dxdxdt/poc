@@ -15,6 +15,8 @@
 
 class ThreadContext {
 protected:
+  static const EventContext::EventID __STARVATION_EVENT__ = 1;
+
   ContextID __id = 0;
   size_t __maxCmdQueueSize = 10;
   uint64_t __acquiredCount = 0;
@@ -300,6 +302,8 @@ protected:
 
   void __acquireLock() {
     if (this->__lockCtx.state == LockContext::NONE) {
+      uint32_t starveTimeout;
+
       if (this->__others.empty()) {
         // 혼자 있음. 바로 락을 얻은 것으로 처리.
         this->__lockCtx.state = LockContext::ACQUIRED;
@@ -315,6 +319,20 @@ protected:
           this->__lockCtx.state = LockContext::LURKING;
         }
       }
+
+      if (::maxLockHoldTime == 0) {
+        starveTimeout = 1000;
+      }
+      else {
+        starveTimeout = ::maxLockHoldTime * (uint32_t)::threads.size() * 10;
+      }
+
+      this->__eventCtx.addDelayedEvent(std::chrono::milliseconds(starveTimeout), []() {
+        std::lock_guard<std::mutex> lg(::stdioLock);
+
+        std::cerr << "*** Starvation detected!" << std::endl;
+        ::abort();
+      }, __STARVATION_EVENT__);
     }
   }
 
@@ -343,6 +361,7 @@ protected:
     std::stringstream ss;
     uint32_t rsrc;
 
+    this->__eventCtx.cancelEvent(__STARVATION_EVENT__);
     this->__acquiredCount += 1;
 
     rsrc = ::resource.fetch_add(1);

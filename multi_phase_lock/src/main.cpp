@@ -53,13 +53,13 @@ int main(const int argc, const char **args) {
           std::cerr << "--help: 이 메시지를 출력." << std::endl
                     << "--initial-threads=N:(uint) 초기 스레드 개수."
                     << std::endl
-                    << "--max-acquire-delay=N:(uint64_t) 스레드가 락을 "
+                    << "--max-acquire-delay=N:(uint32_t) 스레드가 락을 "
                        "해제했을 때, N ms 이후 "
-                       "다시 락 획득을 시작함. 0 <= N < UINT64_MAX"
+                       "다시 락 획득을 시작함. 0 <= N < UINT32_MAX"
                     << std::endl
-                    << "--max-lock-hold-time=N:(uint64_t) 스레드가 락을 "
+                    << "--max-lock-hold-time=N:(uint32_t) 스레드가 락을 "
                        "획득했을 때, N ms 이후 "
-                       "락을 해제함. 0 <= N < UINT64_MAX"
+                       "락을 해제함. 0 <= N < UINT32_MAX"
                     << std::endl;
           return 0;
         }
@@ -93,10 +93,10 @@ int main(const int argc, const char **args) {
   ss.str("");
 
   try {
-    if (::maxAcquireDelay == UINT64_MAX) {
+    if (::maxAcquireDelay == UINT32_MAX) {
       throw std::string("--max-acquire-delay");
     }
-    if (::maxLockHoldTime == UINT64_MAX) {
+    if (::maxLockHoldTime == UINT32_MAX) {
       throw std::string("--max-acquire-delay");
     }
   } catch (std::string &msg) {

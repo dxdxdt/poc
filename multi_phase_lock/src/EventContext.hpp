@@ -109,13 +109,13 @@ public:
     }
   }
 
-  void addDelayedEvent (const ClockType::duration &delay, const FuncType &func, const EventID *id = nullptr) {
+  void addDelayedEvent (const ClockType::duration &delay, const FuncType &func, const EventID id = 0) {
     auto e = this->__allocEvent();
 
-    if (id != nullptr) {
-      this->cancelEvent(*id);
-      this->__idEventMap[*id] = e;
-      this->__eventIDMap[e] = *id;
+    if (id != 0) {
+      this->cancelEvent(id);
+      this->__idEventMap[id] = e;
+      this->__eventIDMap[e] = id;
 
       e->hasID = true;
     }
@@ -128,13 +128,13 @@ public:
     e->posInSlot = this->__slot.insert(std::make_pair(this->__now + delay, e));
   }
 
-  void addImmediateEvent (const FuncType &func, const EventID *id = nullptr) {
+  void addImmediateEvent (const FuncType &func, const EventID id = 0) {
     auto e = this->__allocEvent();
 
-    if (id != nullptr) {
-      this->cancelEvent(*id);
-      this->__idEventMap[*id] = e;
-      this->__eventIDMap[e] = *id;
+    if (id != 0) {
+      this->cancelEvent(id);
+      this->__idEventMap[id] = e;
+      this->__eventIDMap[e] = id;
 
       e->hasID = true;
     }

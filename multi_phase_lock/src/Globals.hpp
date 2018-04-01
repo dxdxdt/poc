@@ -15,8 +15,8 @@ extern std::mutex globalLock;
 extern std::mutex stdioLock;
 extern std::atomic<uint32_t> resource;
 
-extern uint64_t maxAcquireDelay; // in ms
-extern uint64_t maxLockHoldTime; // in ms
+extern uint32_t maxAcquireDelay; // in ms
+extern uint32_t maxLockHoldTime; // in ms
 
 enum OPCode {
   OPC_SHUTDOWN,
