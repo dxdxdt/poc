@@ -24,7 +24,7 @@ void addContext (ThreadContext *ctx) {
   {
     std::lock_guard<std::mutex> lg(::globalLock);
 
-    // 다른 스레드의 정보를 넘겨줌.
+    // 최초에 다른 스레드의 정보를 넘겨줌.
     for (const auto &p : ::threads) {
       cmd = new Command;
       cmd->op_code = OPC_THREAD_SPAWNED;
