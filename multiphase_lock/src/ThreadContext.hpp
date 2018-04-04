@@ -189,6 +189,10 @@ protected:
     cmd->context_to = 0;
     ::sendCommand(cmd);
 
+    if (this->__lockCtx.state == LockContext::ACQUIRED) {
+      ::resource -= 1;
+    }
+
     // 이벤트 비우기.
     this->__eventCtx.clear();
   }

@@ -13,4 +13,4 @@ Makefile\.in
 /depcomp
 /install-sh
 /missing
-/src/poc-multi_phase_lock
+/src/poc-multiphase_lock

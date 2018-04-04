@@ -156,23 +156,19 @@ public:
   }
 
   void handle () {
-    std::vector<__Event*> fired;
+    std::vector<__Event*> toFire;
 
-    for (const auto &v : this->__immediate) {
-      v->func();
-      fired.push_back(v);
-    }
+    std::copy(this->__immediate.begin(), this->__immediate.end(), toFire.end());
 
     for (const auto &p : this->__slot) {
       if (p.first > this->__now) {
         break;
       }
-
-      p.second->func();
-      fired.push_back(p.second);
+      toFire.push_back(p.second);
     }
 
-    for (const auto &v : fired) {
+    for (const auto &v : toFire) {
+      v->func();
       this->__freeEvent(v);
     }
   }
