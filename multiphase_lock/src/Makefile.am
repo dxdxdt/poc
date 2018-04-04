@@ -13,10 +13,10 @@ endif
 
 AM_CXXFLAGS = $(WARNINGCFLAGS) $(DEBUG_FLAGS) $(OPTI_FLAGS) -std=c++11
 
-bin_PROGRAMS = poc-multi_phase_lock
+bin_PROGRAMS = poc-multiphase_lock
 # 컴파일할 소스.
-poc_multi_phase_lock_SOURCES =\
+poc_multiphase_lock_SOURCES =\
   Globals.cpp\
   main.cpp
 
-poc_multi_phase_lock_LDFLAGS = -lpthread
+poc_multiphase_lock_LDFLAGS = -lpthread

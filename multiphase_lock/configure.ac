@@ -1,4 +1,4 @@
-AC_INIT([poc-multi_phase_lock], [0.0.0], [support@fixstudio.pro])
+AC_INIT([poc-multiphase_lock], [0.0.0], [support@fixstudio.pro])
 
 # 기본 컴파일러 옵션 (-O2 -g) 제거
 : ${CFLAGS=""}

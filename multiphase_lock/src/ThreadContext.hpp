@@ -256,6 +256,9 @@ protected:
         this->__lockCtx.yourLockToSend.insert(cmd.context_from);
       }
       break;
+    case LockContext::ACQUIRED:
+      this->__lockCtx.yourLockToSend.insert(cmd.context_from);
+      break;
     }
   }
 
