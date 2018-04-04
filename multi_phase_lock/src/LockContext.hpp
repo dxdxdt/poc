@@ -22,6 +22,9 @@ struct LockContext {
   // "YourLock" 명령을 받아야하는 곳들.
   // `SOLICITING` 상태에서 이 컬렉션에 아이템이 없으면 `ACQUIRED` 상태로 진입한다.
   std::set<ContextID> yourLockToRcv;
+  // "YourLock" 명령을 보내야할 곳들 (deferred)
+  // `SOLICITING` 상태에서 나보다 우선순위가 낮은 곳에서 "MyLock" 명령이 수신되면
+  // "기억"할 때 씀.
   std::set<ContextID> yourLockToSend;
   // `MyLock` 명령을 받은 곳들 (락을 얻으려는 곳들)
   std::set<ContextID> rcvMyLock;
