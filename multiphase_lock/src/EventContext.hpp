@@ -45,7 +45,7 @@ protected:
     return &*ret;
   }
 
-  void __freeEvent (__Event *e) {
+  void __popEvent (__Event *e) {
     switch (e->type) {
       case T_IMMEDIATE: this->__immediate.erase(e); break;
       case T_DELAYED: this->__slot.erase(e->posInSlot); break;
@@ -59,8 +59,6 @@ protected:
           this->__eventIDMap.erase(it);
         }
     }
-
-    this->__list.erase(e->posInList);
   }
 
 public:
@@ -105,7 +103,8 @@ public:
     auto it = this->__idEventMap.find(id);
 
     if (this->__idEventMap.end() != it) {
-      this->__freeEvent(it->second);
+      this->__popEvent(it->second);
+      this->__list.erase(it->second->posInList);
     }
   }
 
@@ -165,11 +164,12 @@ public:
         break;
       }
       toFire.push_back(p.second);
+      this->__popEvent(p.second);
     }
 
     for (const auto &v : toFire) {
       v->func();
-      this->__freeEvent(v);
+      this->__list.erase(v->posInList);
     }
   }
 };

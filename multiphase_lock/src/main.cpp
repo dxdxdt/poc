@@ -202,5 +202,10 @@ int main(const int argc, const char **args) {
     }
   } while (loopFlag);
 
+  for (const auto &p : ::threads) {
+    delete ::popContext(p.first);
+  }
+  ::threads.clear();
+
   return ec;
 }
